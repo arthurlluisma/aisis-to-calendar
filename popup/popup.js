@@ -252,7 +252,7 @@ async function convertCalendar(whichButton) {
                   location: venue.trim(),
                   description: `Section: ${section}\\nInstructor: ${instructor}`,
                   byday: `${ICSDays[firstDay]},${ICSDays[secondDay]}`,
-                  endString: `${yearString}${TermEndMonthDay[term]}`
+                  endString: `${yearString}${String(lastDayOfClasses.getMonth()+1).padStart(2, '0')}${String(lastDayOfClasses.getDate()).padStart(2, '0')}`
                 })
               }
               
@@ -283,7 +283,7 @@ async function convertCalendar(whichButton) {
                   location: venue.trim(),
                   description: `Section: ${section}\\nInstructor: ${instructor}`,
                   byday: ICSDays[day],
-                  endString: `${yearString}${TermEndMonthDay[term]}`
+                  endString: `${yearString}${String(lastDayOfClasses.getMonth()+1).padStart(2, '0')}${String(lastDayOfClasses.getDate()).padStart(2, '0')}`
                 })
               }
             }
