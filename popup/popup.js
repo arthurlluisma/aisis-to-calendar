@@ -110,9 +110,13 @@ async function initializeDates(firstDayInput, lastDayInput) {
           lastDayInput.value = formatLocalDate(lastDay);
         }
       }
+    } else {
+      console.warn("Term and year information not found on the page.");
+      alert("Sorry, but the term and year information couldn't be found. Please ensure you are on the correct page with the term and year details.");
     }
   } catch (error) {
     console.error("Error initializing dates:", error);
+    alert("Sorry, but there was an issue during the date processing. Please try again.");
   }
 }
 
@@ -132,6 +136,10 @@ async function convertCalendar(whichButton) {
       target: { tabId: tab.id },
       function: extractClassesTableAfterComment,
     });
+
+    console.log("Executing...");
+    console.log({ classResults, termAndYearResults });
+    console.log(classResults[0].result);
 
     if (classResults && classResults[0] && classResults[0].result) {
       const tableHTML = classResults[0].result;
@@ -294,6 +302,8 @@ async function convertCalendar(whichButton) {
       } else {
         alert("Sorry, but the table containing the class schedules couldn't be found. Please ensure you are on the correct page with the class schedule table.");
       }
+    } else {
+      alert("Sorry, but the table containing the class schedules couldn't be found. Please ensure you are on the correct page with the class schedule table.");
     }
   } catch (error) {
     console.error("Error:", error);
