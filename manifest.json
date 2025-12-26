@@ -7,5 +7,5 @@
     "default_popup": "./popup/popup.html",
     "default_icon": "./images/icon.png"
   },
-  "permissions": ["activeTab", "scripting"]
+  "permissions": ["storage", "activeTab", "scripting"]
 }

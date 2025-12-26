@@ -20,8 +20,24 @@
         class="main__icon"
       />
       <h1>AISIS to Calendar</h1>
-      <button id="ics">Convert to ICS</button>
-      <button id="csv">Convert to CSV</button>
+      <form id="scheduleForm">
+        <div class="form-group">
+          <label for="firstDay">First Day of Classes:</label>
+          <input type="date" id="firstDay" name="firstDay" required />
+        </div>
+        <div class="form-group">
+          <label for="lastDay">Last Day of Classes:</label>
+          <input type="date" id="lastDay" name="lastDay" required />
+        </div>
+        <div class="form-group">
+          <label for="format">Format:</label>
+          <select id="format" name="format">
+            <option value="ICS" selected>ICS</option>
+            <option value="CSV">CSV</option>
+          </select>
+        </div>
+        <button type="submit">Convert Schedule</button>
+      </form>
     </main>
     <script src="./popup.js"></script>
   </body>

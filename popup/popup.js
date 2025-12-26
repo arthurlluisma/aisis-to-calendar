@@ -1,10 +1,15 @@
-document.addEventListener("DOMContentLoaded", function () {
-  const ICSbutton = document.querySelector("button#ics");
-  const CSVbutton = document.querySelector("button#csv");
+document.addEventListener("DOMContentLoaded", async function () {
+  const form = document.querySelector("#scheduleForm");
+  const firstDayInput = document.querySelector("#firstDay");
+  const lastDayInput = document.querySelector("#lastDay");
 
-  ICSbutton.addEventListener("click", convertCalendar.bind(null, "ICS"));
+  await initializeDates(firstDayInput, lastDayInput);
 
-  CSVbutton.addEventListener("click", convertCalendar.bind(null, "CSV"));
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const format = document.querySelector("#format").value;
+    await convertCalendar(format);
+  });
 });
 
 const TermStartMonth = Object.freeze({
@@ -23,6 +28,21 @@ const TermEndMonthDay = Object.freeze({
   "2nd Semester": "0531",
   "1st Semester": "1231",
   "Intersession": "0731"
+})
+
+const TermDefaultDates = Object.freeze({
+  "2nd Semester": {
+    firstDay: { month: 0, day: 1 },
+    lastDay: { month: 4, day: 31 }
+  },
+  "1st Semester": {
+    firstDay: { month: 7, day: 1 },
+    lastDay: { month: 11, day: 31 }
+  },
+  "Intersession": {
+    firstDay: { month: 5, day: 1 },
+    lastDay: { month: 6, day: 31 }
+  }
 })
 
 const Days = Object.freeze({
@@ -44,6 +64,57 @@ const ICSDays = Object.freeze({
   "F": "FR",
   "SAT": "SA"
 })
+
+async function initializeDates(firstDayInput, lastDayInput) {
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
+    const termAndYearResults = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: extractTermAndYearAfterComment,
+    });
+
+    if (termAndYearResults && termAndYearResults[0] && termAndYearResults[0].result) {
+      let termAndYear = termAndYearResults[0].result;
+      let term = termAndYear.split(", SY ")[0].trim();
+      let year = termAndYear.split(", SY ")[1].trim().split("-")[1];
+      year = parseInt(year, 10);
+      if (term !== "2nd Semester") {
+        year -= 1;
+      }
+
+      const savedData = await chrome.storage.local.get(['savedTerm', 'savedFirstDay', 'savedLastDay']);
+      
+      if (savedData.savedTerm === termAndYear) {
+        firstDayInput.value = savedData.savedFirstDay;
+        lastDayInput.value = savedData.savedLastDay;
+      } else {
+        await chrome.storage.local.remove(['savedTerm', 'savedFirstDay', 'savedLastDay']);
+        
+        const defaults = TermDefaultDates[term];
+        if (defaults) {
+          const firstDay = new Date(year, defaults.firstDay.month, defaults.firstDay.day);
+          const lastDay = new Date(year, defaults.lastDay.month, defaults.lastDay.day);
+          
+          const formatLocalDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          };
+          
+          firstDayInput.value = formatLocalDate(firstDay);
+          lastDayInput.value = formatLocalDate(lastDay);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error initializing dates:", error);
+  }
+}
 
 async function convertCalendar(whichButton) {
   try {
@@ -74,6 +145,23 @@ async function convertCalendar(whichButton) {
       }
       let yearString = year.toString();
       console.log({ term, year, yearString });
+
+      const firstDayInput = document.querySelector("#firstDay").value;
+      const lastDayInput = document.querySelector("#lastDay").value;
+      
+      if (!firstDayInput || !lastDayInput) {
+        alert("Please provide both first and last day of classes.");
+        return;
+      }
+
+      const firstDayOfClasses = new Date(firstDayInput + 'T00:00:00');
+      const lastDayOfClasses = new Date(lastDayInput + 'T00:00:00');
+
+      await chrome.storage.local.set({
+        savedTerm: termAndYear,
+        savedFirstDay: firstDayInput,
+        savedLastDay: lastDayInput
+      });
 
       if (tableHTML) {
         console.log("Found table:", tableHTML);
@@ -113,12 +201,10 @@ async function convertCalendar(whichButton) {
               let firstDay = dayValues[0];
               let secondDay = dayValues[1];
 
-              let firstDayDate = getFirstDayOccurrence(year, TermStartMonth[term], Days[firstDay]);
-              let secondDayDate = getFirstDayOccurrence(year, TermStartMonth[term], Days[secondDay]);
+              let firstDayDate = getFirstDayOccurrenceFromDate(firstDayOfClasses, Days[firstDay]);
+              let secondDayDate = getFirstDayOccurrenceFromDate(firstDayOfClasses, Days[secondDay]);
 
               console.log({ firstDayDate, secondDayDate, startTime, endTime, venue });
-
-              const lastDayOfClasses = new Date(year, TermEndMonth[term], 31);
               if (whichButton === "CSV") {
                 while (firstDayDate < lastDayOfClasses) {
                   events.push({
@@ -163,11 +249,9 @@ async function convertCalendar(whichButton) {
               }
               
             } else {
-              let dayDate = getFirstDayOccurrence(year, TermStartMonth[term], Days[day]);
+              let dayDate = getFirstDayOccurrenceFromDate(firstDayOfClasses, Days[day]);
 
               console.log({ dayDate, startTime, endTime, venue });
-
-              const lastDayOfClasses = new Date(year, TermEndMonth[term], 31);
               if (whichButton === "CSV") {
                 while (dayDate < lastDayOfClasses) {
                   events.push({
@@ -322,6 +406,14 @@ function getFirstDayOccurrence(year, month, dayOfWeek) {
   const firstDayOfMonth = date.getDay();
   const dayDifference = (dayOfWeek - firstDayOfMonth + 7) % 7;
   date.setDate(1 + dayDifference);
+  return date;
+}
+
+function getFirstDayOccurrenceFromDate(startDate, dayOfWeek) {
+  const date = new Date(startDate);
+  const currentDay = date.getDay();
+  const dayDifference = (dayOfWeek - currentDay + 7) % 7;
+  date.setDate(date.getDate() + dayDifference);
   return date;
 }
 
