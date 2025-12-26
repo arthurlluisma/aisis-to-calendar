@@ -7,6 +7,24 @@ document.addEventListener("DOMContentLoaded", function () {
   CSVbutton.addEventListener("click", convertCalendar.bind(null, "CSV"));
 });
 
+const TermStartMonth = Object.freeze({
+  "2nd Semester": 0,
+  "1st Semester": 7,
+  "Intersession": 5
+})
+
+const TermEndMonth = Object.freeze({
+  "2nd Semester": 4,
+  "1st Semester": 11,
+  "Intersession": 6
+})
+
+const TermEndMonthDay = Object.freeze({
+  "2nd Semester": "0531",
+  "1st Semester": "1231",
+  "Intersession": "0731"
+})
+
 const Days = Object.freeze({
   "S": 0,
   "M": 1,
@@ -34,13 +52,28 @@ async function convertCalendar(whichButton) {
       currentWindow: true,
     });
 
-    const results = await chrome.scripting.executeScript({
+    const termAndYearResults = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      function: extractTableAfterComment,
+      function: extractTermAndYearAfterComment,
     });
 
-    if (results && results[0] && results[0].result) {
-      const tableHTML = results[0].result;
+    const classResults = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: extractClassesTableAfterComment,
+    });
+
+    if (classResults && classResults[0] && classResults[0].result) {
+      const tableHTML = classResults[0].result;
+
+      let termAndYear = termAndYearResults[0].result;
+      let term = termAndYear.split(", SY ")[0].trim();
+      let year = termAndYear.split(", SY ")[1].trim().split("-")[1];
+      year = parseInt(year, 10);
+      if (term !== "2nd Semester") {
+        year -= 1;
+      }
+      let yearString = year.toString();
+      console.log({ term, year, yearString });
 
       if (tableHTML) {
         console.log("Found table:", tableHTML);
@@ -80,13 +113,12 @@ async function convertCalendar(whichButton) {
               let firstDay = dayValues[0];
               let secondDay = dayValues[1];
 
-              let firstDayDate = getFirstDayOccurrence(2026, 0, Days[firstDay]);
-              let secondDayDate = getFirstDayOccurrence(2026, 0, Days[secondDay]);
+              let firstDayDate = getFirstDayOccurrence(year, TermStartMonth[term], Days[firstDay]);
+              let secondDayDate = getFirstDayOccurrence(year, TermStartMonth[term], Days[secondDay]);
 
               console.log({ firstDayDate, secondDayDate, startTime, endTime, venue });
 
-              const lastDayOfClasses = new Date(2026, 5, 1);
-
+              const lastDayOfClasses = new Date(year, TermEndMonth[term], 31);
               if (whichButton === "CSV") {
                 while (firstDayDate < lastDayOfClasses) {
                   events.push({
@@ -126,17 +158,16 @@ async function convertCalendar(whichButton) {
                   location: venue.trim(),
                   description: `Section: ${section}\\nInstructor: ${instructor}`,
                   byday: `${ICSDays[firstDay]},${ICSDays[secondDay]}`,
-                  endString: "20260601"
+                  endString: `${yearString}${TermEndMonthDay[term]}`
                 })
               }
               
             } else {
-              let dayDate = getFirstDayOccurrence(2026, 0, Days[day]);
+              let dayDate = getFirstDayOccurrence(year, TermStartMonth[term], Days[day]);
 
               console.log({ dayDate, startTime, endTime, venue });
 
-              const lastDayOfClasses = new Date(2026, 5, 1);
-
+              const lastDayOfClasses = new Date(year, TermEndMonth[term], 31);
               if (whichButton === "CSV") {
                 while (dayDate < lastDayOfClasses) {
                   events.push({
@@ -160,7 +191,7 @@ async function convertCalendar(whichButton) {
                   location: venue.trim(),
                   description: `Section: ${section}\\nInstructor: ${instructor}`,
                   byday: ICSDays[day],
-                  endString: "20260601"
+                  endString: `${yearString}${TermEndMonthDay[term]}`
                 })
               }
             }
@@ -253,7 +284,7 @@ function getFirstDayOccurrence(year, month, dayOfWeek) {
   return date;
 }
 
-function extractTableAfterComment() {
+function extractClassesTableAfterComment() {
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_COMMENT,
@@ -283,6 +314,44 @@ function extractTableAfterComment() {
       const table = currentNode.querySelector("table");
       if (table) {
         return table.outerHTML;
+      }
+    }
+    currentNode = currentNode.nextSibling;
+  }
+
+  return null;
+}
+
+function extractTermAndYearAfterComment() {
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_COMMENT,
+    null,
+    false
+  );
+
+  let commentNode = null;
+  while (walker.nextNode()) {
+    if (walker.currentNode.nodeValue.trim() === "term, school year") {
+      commentNode = walker.currentNode;
+      break;
+    }
+  }
+
+  if (!commentNode) {
+    return null;
+  }
+
+  let currentNode = commentNode.nextSibling;
+
+  while (currentNode) {
+    if (currentNode.nodeType === Node.ELEMENT_NODE) {
+      if (currentNode.tagName === "SPAN") {
+        return currentNode.innerHTML;
+      }
+      const span = currentNode.querySelector("span");
+      if (span) {
+        return span.innerHTML;
       }
     }
     currentNode = currentNode.nextSibling;
