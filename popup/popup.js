@@ -201,7 +201,7 @@ async function convertCalendar(whichButton) {
             const csvData = convertToCSV(events);
             downloadCSV(csvData, "schedule.csv");
           } else {
-            const icsData = convertToICS(events);
+            const icsData = await convertToICS(events);
             downloadICS(icsData, "schedule.ics");
           }
         }
@@ -230,10 +230,25 @@ function downloadICS(icsData, filename) {
   URL.revokeObjectURL(url);
 }
 
-function convertToICS(events) {
+async function convertToICS(events) {
   let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//AISIS to Calendar//EN\nCALSCALE:GREGORIAN\n";
+  const timestamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  
+  const sequences = await getSequences();
+  const updatedSequences = { ...sequences };
+  
   for (const event of events) {
     icsContent += "BEGIN:VEVENT\n";
+    
+    const uid = generateUID(event);
+    icsContent += `UID:${uid}\n`;
+    icsContent += `DTSTAMP:${timestamp}\n`;
+    
+    const currentSequence = sequences[uid] || 0;
+    const newSequence = currentSequence + 1;
+    updatedSequences[uid] = newSequence;
+    icsContent += `SEQUENCE:${newSequence}\n`;
+
     icsContent += `SUMMARY:${event.summary}\n`;
     icsContent += `DTSTART;TZID=Asia/Singapore:${event.start}\n`;
     icsContent += `DTEND;TZID=Asia/Singapore:${event.end}\n`;
@@ -243,7 +258,33 @@ function convertToICS(events) {
     icsContent += "END:VEVENT\n";
   }
   icsContent += "END:VCALENDAR";
+  
+  await saveSequences(updatedSequences);
+  
   return icsContent;
+}
+
+async function getSequences() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['eventSequences'], (result) => {
+      resolve(result.eventSequences || {});
+    });
+  });
+}
+
+async function saveSequences(sequences) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ eventSequences: sequences }, resolve);
+  });
+}
+
+function generateUID(event) {
+  const summary = event.summary.replace(/[^a-zA-Z0-9]/g, '');
+  const startTime = event.start.substring(9, 15);
+  const days = event.byday.replace(/,/g, '');
+  const location = event.location.replace(/[^a-zA-Z0-9]/g, '');
+  
+  return `${summary}-${startTime}-${days}-${location}@aisis-to-calendar`;
 }
 
 function downloadCSV(csvData, filename) {
