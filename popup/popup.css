@@ -38,6 +38,10 @@ main button {
   border: none;
   border-radius: 0.5em;
   cursor: pointer;
-  background: rgb(34,230,255);
-  background: linear-gradient(17deg, rgba(34,230,255,1) 0%, rgba(1,4,255,1) 100%);
+  background: rgb(34, 230, 255);
+  background: linear-gradient(
+    17deg,
+    rgba(34, 230, 255, 1) 0%,
+    rgba(1, 4, 255, 1) 100%
+  );
 }
