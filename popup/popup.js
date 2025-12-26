@@ -208,12 +208,12 @@ async function convertCalendar(whichButton) {
 
         alert(`Conversion successful! Check your downloads for the ${whichButton} file.`);
       } else {
-        alert("Sorry, but there was an issue encountering the conversion. Please ensure you are on the correct page with the schedule table.");
+        alert("Sorry, but the table containing the class schedules couldn't be found. Please ensure you are on the correct page with the class schedule table.");
       }
     }
   } catch (error) {
     console.error("Error:", error);
-    alert("Error: " + error.message);
+    alert("Sorry, but there was an issue during the conversion process. Please try again.");
   }
 }
 
