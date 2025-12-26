@@ -117,10 +117,12 @@ async function convertCalendar(whichButton) {
                   secondDayDate.setDate(secondDayDate.getDate() + 7);
                 }
               } else {
+                let startDate = firstDayDate.getTime() < secondDayDate.getTime() ? firstDayDate : secondDayDate;
+
                 events.push({
                   summary: courseCode,
-                  start: `${firstDayDate.getFullYear()}${String(firstDayDate.getMonth()+1).padStart(2, '0')}${String(firstDayDate.getDate()).padStart(2, '0')}T${startTime.replace(":", "")}00`,
-                  end: `${firstDayDate.getFullYear()}${String(firstDayDate.getMonth()+1).padStart(2, '0')}${String(firstDayDate.getDate()).padStart(2, '0')}T${endTime.replace(":", "")}00`,
+                  start: `${startDate.getFullYear()}${String(startDate.getMonth()+1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}T${startTime.replace(":", "")}00`,
+                  end: `${startDate.getFullYear()}${String(startDate.getMonth()+1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}T${endTime.replace(":", "")}00`,
                   location: venue.trim(),
                   description: `Section: ${section}\\nInstructor: ${instructor}`,
                   byday: `${ICSDays[firstDay]},${ICSDays[secondDay]}`,
