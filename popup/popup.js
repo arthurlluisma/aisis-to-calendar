@@ -182,16 +182,51 @@ async function convertCalendar(whichButton) {
         const tbody = tableElement.querySelector("tbody");
         if (tbody) {
           const rows = Array.from(tbody.rows);
-          rows.shift();
-          rows.pop();
 
           let events = [];
 
+          if (rows.length === 0) {
+            alert("No rows found in the schedule table.");
+            return;
+          }
+          const expectedColumnCount = rows[0].cells.length;
+
+          const firstRow = rows[0];
+          let courseCodeIndex = -1;
+          let sectionIndex = -1;
+          let instructorIndex = -1;
+          let scheduleIndex = -1;
+
+          for (let i = 0; i < firstRow.cells.length; i++) {
+            const cellText = firstRow.cells[i].innerText.trim().toLowerCase();
+            
+            if (cellText.includes("course code") || cellText.includes("subject")) {
+              courseCodeIndex = i;
+            } else if (cellText.includes("section")) {
+              sectionIndex = i;
+            } else if (cellText.includes("instructor")) {
+              instructorIndex = i;
+            } else if (cellText.includes("schedule")) {
+              scheduleIndex = i;
+            }
+          }
+
           for (const row of rows) {
-            const courseCode = row.cells[0].innerText.trim();
-            const section = row.cells[1].innerText.trim();
-            const instructor = row.cells[3].innerText.trim();
-            const schedule = row.cells[4].innerText.trim();
+            let shouldSkipRow = false;
+            for (const cell of row.cells) {
+              if (cell.getAttribute("background") === "images/spacer_lightblue.jpg") {
+                shouldSkipRow = true;
+                break;
+              }
+            }
+            if (shouldSkipRow) continue;
+
+            if (row.cells.length !== expectedColumnCount) continue;
+
+            const courseCode = courseCodeIndex >= 0 && row.cells[courseCodeIndex] ? row.cells[courseCodeIndex].innerText.trim() : "";
+            const section = sectionIndex >= 0 && row.cells[sectionIndex] ? row.cells[sectionIndex].innerText.trim() : "";
+            const instructor = instructorIndex >= 0 && row.cells[instructorIndex] ? row.cells[instructorIndex].innerText.trim() : "";
+            const schedule = scheduleIndex >= 0 && row.cells[scheduleIndex] ? row.cells[scheduleIndex].innerText.trim() : "";
 
             if (schedule.includes("TBA")) continue;
 
