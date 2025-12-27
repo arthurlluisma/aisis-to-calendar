@@ -139,7 +139,6 @@ async function convertCalendar(whichButton) {
 
     console.log("Executing...");
     console.log({ classResults, termAndYearResults });
-    console.log(classResults[0].result);
 
     if (classResults && classResults[0] && classResults[0].result) {
       const tableHTML = classResults[0].result;
@@ -428,77 +427,43 @@ function getFirstDayOccurrenceFromDate(startDate, dayOfWeek) {
 }
 
 function extractClassesTableAfterComment() {
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_COMMENT,
-    null,
-    false
-  );
+  const tableCells = document.querySelectorAll("td");
+  let scheduleTable = null;
+  let foundTable = false;
+  for (const tableCell of tableCells) {
+    const background = tableCell.getAttribute("background");
+    const isScheduleInCell = tableCell.textContent.trim().toLowerCase().includes("schedule");
 
-  let commentNode = null;
-  while (walker.nextNode()) {
-    if (walker.currentNode.nodeValue.trim() === "results and tables") {
-      commentNode = walker.currentNode;
-      break;
-    }
+    if (!isScheduleInCell || background !== "images/spacer_lightblue.jpg") continue;
+
+    foundTable = true;
+    scheduleTable = tableCell;
+    break;
   }
 
-  if (!commentNode) {
-    return null;
-  }
+  if (!foundTable) return null;
 
-  let currentNode = commentNode.nextSibling;
+  scheduleTable = scheduleTable.closest("table");
 
-  while (currentNode) {
-    if (currentNode.nodeType === Node.ELEMENT_NODE) {
-      if (currentNode.tagName === "TABLE") {
-        return currentNode.outerHTML;
-      }
-      const table = currentNode.querySelector("table");
-      if (table) {
-        return table.outerHTML;
-      }
-    }
-    currentNode = currentNode.nextSibling;
-  }
-
-  return null;
+  return scheduleTable.outerHTML;
 }
 
 function extractTermAndYearAfterComment() {
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_COMMENT,
-    null,
-    false
-  );
+  const terms = ["1st semester, sy ", "2nd semester, sy ", "intersession, sy "];
 
-  let commentNode = null;
-  while (walker.nextNode()) {
-    if (walker.currentNode.nodeValue.trim() === "term, school year") {
-      commentNode = walker.currentNode;
+  const spanElements = document.querySelectorAll("span");
+  let termSpan = null;
+  let foundSpan = false;
+  for (const spanElement of spanElements) {
+    let spanText = spanElement.textContent.trim().toLowerCase();
+    if (terms.some(term => spanText.includes(term))) {
+      foundSpan = true;
+      termSpan = spanElement;
       break;
     }
   }
 
-  if (!commentNode) {
-    return null;
-  }
+  if (!foundSpan) return null;
 
-  let currentNode = commentNode.nextSibling;
-
-  while (currentNode) {
-    if (currentNode.nodeType === Node.ELEMENT_NODE) {
-      if (currentNode.tagName === "SPAN") {
-        return currentNode.innerHTML;
-      }
-      const span = currentNode.querySelector("span");
-      if (span) {
-        return span.innerHTML;
-      }
-    }
-    currentNode = currentNode.nextSibling;
-  }
-
-  return null;
+  return termSpan.innerHTML;
 }
