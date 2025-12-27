@@ -322,7 +322,7 @@ async function convertCalendarFromSchedule() {
   }
 }
 
-async function convertCalendarFromEnlistment(whichButton) {
+async function convertCalendarFromEnlistment() {
   try {
     const [tab] = await chrome.tabs.query({
       active: true,
@@ -449,92 +449,41 @@ async function convertCalendarFromEnlistment(whichButton) {
               let secondDayDate = getFirstDayOccurrenceFromDate(firstDayOfClasses, Days[secondDay]);
 
               console.log({ firstDayDate, secondDayDate, startTime, endTime, venue });
-              if (whichButton === "CSV") {
-                while (firstDayDate < lastDayOfClasses) {
-                  events.push({
-                    "Subject": courseCode,
-                    "Start Date": firstDayDate.toLocaleDateString("en-CA"),
-                    "Start Time": startTime,
-                    "End Date": firstDayDate.toLocaleDateString("en-CA"),
-                    "End Time": endTime,
-                    "Description": `Section: ${section}\nInstructor: ${instructor}`,
-                    "Location": venue.trim(),
-                    "All Day Event": "False",
-                    "Private": "False"
-                  })
-                  firstDayDate.setDate(firstDayDate.getDate() + 7);
-                }
-                while (secondDayDate < lastDayOfClasses) {
-                  events.push({
-                    "Subject": courseCode,
-                    "Start Date": secondDayDate.toLocaleDateString("en-CA"),
-                    "Start Time": startTime,
-                    "End Date": secondDayDate.toLocaleDateString("en-CA"),
-                    "End Time": endTime,
-                    "Description": `Section: ${section}\nInstructor: ${instructor}`,
-                    "Location": venue.trim(),
-                    "All Day Event": "False",
-                    "Private": "False"
-                  })
-                  secondDayDate.setDate(secondDayDate.getDate() + 7);
-                }
-              } else {
-                let startDate = firstDayDate.getTime() < secondDayDate.getTime() ? firstDayDate : secondDayDate;
+              
+              let startDate = firstDayDate.getTime() < secondDayDate.getTime() ? firstDayDate : secondDayDate;
 
-                events.push({
-                  summary: courseCode,
-                  start: `${startDate.getFullYear()}${String(startDate.getMonth()+1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}T${startTime.replace(":", "")}00`,
-                  end: `${startDate.getFullYear()}${String(startDate.getMonth()+1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}T${endTime.replace(":", "")}00`,
-                  location: venue.trim(),
-                  description: `Section: ${section}\\nInstructor: ${instructor}`,
-                  byday: `${ICSDays[firstDay]},${ICSDays[secondDay]}`,
-                  endString: `${yearString}${String(lastDayOfClasses.getMonth()+1).padStart(2, '0')}${String(lastDayOfClasses.getDate()).padStart(2, '0')}`
-                })
-              }
+              events.push({
+                summary: courseCode,
+                start: `${startDate.getFullYear()}${String(startDate.getMonth()+1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}T${startTime.replace(":", "")}00`,
+                end: `${startDate.getFullYear()}${String(startDate.getMonth()+1).padStart(2, '0')}${String(startDate.getDate()).padStart(2, '0')}T${endTime.replace(":", "")}00`,
+                location: venue.trim(),
+                description: `Section: ${section}\\nInstructor: ${instructor}`,
+                byday: `${ICSDays[firstDay]},${ICSDays[secondDay]}`,
+                endString: `${yearString}${String(lastDayOfClasses.getMonth()+1).padStart(2, '0')}${String(lastDayOfClasses.getDate()).padStart(2, '0')}`
+              })
               
             } else {
               let dayDate = getFirstDayOccurrenceFromDate(firstDayOfClasses, Days[day]);
 
               console.log({ dayDate, startTime, endTime, venue });
-              if (whichButton === "CSV") {
-                while (dayDate < lastDayOfClasses) {
-                  events.push({
-                    "Subject": courseCode,
-                    "Start Date": dayDate.toLocaleDateString("en-CA"),
-                    "Start Time": startTime,
-                    "End Date": dayDate.toLocaleDateString("en-CA"),
-                    "End Time": endTime,
-                    "Description": `Section: ${section}\nInstructor: ${instructor}`,
-                    "Location": venue.trim(),
-                    "All Day Event": "False",
-                    "Private": "False"
-                  })
-                  dayDate.setDate(dayDate.getDate() + 7);
-                }
-              } else {
-                events.push({
-                  summary: courseCode,
-                  start: `${dayDate.getFullYear()}${String(dayDate.getMonth()+1).padStart(2, '0')}${String(dayDate.getDate()).padStart(2, '0')}T${startTime.replace(":", "")}00`,
-                  end: `${dayDate.getFullYear()}${String(dayDate.getMonth()+1).padStart(2, '0')}${String(dayDate.getDate()).padStart(2, '0')}T${endTime.replace(":", "")}00`,
-                  location: venue.trim(),
-                  description: `Section: ${section}\\nInstructor: ${instructor}`,
-                  byday: ICSDays[day],
-                  endString: `${yearString}${String(lastDayOfClasses.getMonth()+1).padStart(2, '0')}${String(lastDayOfClasses.getDate()).padStart(2, '0')}`
-                })
-              }
+              
+              events.push({
+                summary: courseCode,
+                start: `${dayDate.getFullYear()}${String(dayDate.getMonth()+1).padStart(2, '0')}${String(dayDate.getDate()).padStart(2, '0')}T${startTime.replace(":", "")}00`,
+                end: `${dayDate.getFullYear()}${String(dayDate.getMonth()+1).padStart(2, '0')}${String(dayDate.getDate()).padStart(2, '0')}T${endTime.replace(":", "")}00`,
+                location: venue.trim(),
+                description: `Section: ${section}\\nInstructor: ${instructor}`,
+                byday: ICSDays[day],
+                endString: `${yearString}${String(lastDayOfClasses.getMonth()+1).padStart(2, '0')}${String(lastDayOfClasses.getDate()).padStart(2, '0')}`
+              })
             }
           }
 
-          if (whichButton === "CSV") {
-            const csvData = convertToCSV(events);
-            downloadCSV(csvData, "schedule.csv");
-          } else {
-            const icsData = await convertToICS(events);
-            downloadICS(icsData, "schedule.ics");
-          }
+          const icsData = await convertToICS(events);
+          downloadICS(icsData, "schedule.ics");
         }
 
-        alert(`Conversion successful! Check your downloads for the ${whichButton} file.`);
+        alert(`Conversion successful! Check your downloads for the schedule.ics file.`);
       } else {
         alert("Sorry, but the table containing the class schedules couldn't be found. Please ensure you are on the correct page with the class schedule table.");
       }
@@ -615,36 +564,6 @@ function generateUID(event) {
   const location = event.location.replace(/[^a-zA-Z0-9]/g, '');
   
   return `${summary}-${startTime}-${days}-${location}@aisis-to-calendar`;
-}
-
-function downloadCSV(csvData, filename) {
-  const blob = new Blob([csvData], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.style.visibility = "hidden";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function convertToCSV(data) {
-  const headers = Object.keys(data[0]);
-  const csvRows = [];
-
-  csvRows.push(headers.join(","));
-
-  for (const row of data) {
-    const values = headers.map(header => {
-      const escaped = ("" + row[header]).replace(/"/g, '\\"');
-      return `"${escaped}"`;
-    });
-    csvRows.push(values.join(","));
-  }
-
-  return csvRows.join("\n");
 }
 
 function getFirstDayOccurrence(year, month, dayOfWeek) {
