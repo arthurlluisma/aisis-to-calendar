@@ -177,8 +177,12 @@ async function chooseConversionMethod() {
 
     if (currentPage === "schedule") {
       await convertCalendarFromSchedule();
-    } else {
+    } else if (currentPage === "enlistment") {
       await convertCalendarFromEnlistment();
+    } else {
+      alert(
+        "Sorry, but the current page is not supported for conversion. Please navigate to either the class schedule page or the enlistment summary page."
+      );
     }
   } catch (error) {
     console.error("Error choosing conversion method:", error);
@@ -723,12 +727,20 @@ function extractClassesTableFromEnlistment() {
 }
 
 function extractPage() {
-  const classCell = document.querySelector(".classCell");
-  if (classCell) {
+  const headerCell = document.querySelector(".header06");
+  const headerContent = headerCell ? headerCell.textContent.trim() : "";
+
+  if (headerContent.toLowerCase() === "my class schedule") {
     return "schedule";
-  } else {
+  } else if (
+    headerContent.toLowerCase() === "summary of enlistment" ||
+    headerContent.toLowerCase() === "enlistment summary" ||
+    headerContent.toLowerCase() === "confirm enlistment"
+  ) {
     return "enlistment";
   }
+
+  return null;
 }
 
 function extractTermAndYear() {
