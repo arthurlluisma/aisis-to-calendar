@@ -308,7 +308,10 @@ async function convertCalendarFromSchedule() {
             }
           }
 
-          const sortedDays = [earliestDay, ...days.filter(d => d !== earliestDay)];
+          const sortedDays = [
+            earliestDay,
+            ...days.filter((d) => d !== earliestDay),
+          ];
           const icsDays = sortedDays.map((day) => ICSDays[day]).join(",");
 
           events.push({
@@ -518,9 +521,10 @@ async function convertCalendarFromEnlistment() {
                   ? firstDayDate
                   : secondDayDate;
 
-              let earliestDay = firstDayDate.getTime() < secondDayDate.getTime()
-                ? firstDay
-                : secondDay;
+              let earliestDay =
+                firstDayDate.getTime() < secondDayDate.getTime()
+                  ? firstDay
+                  : secondDay;
               let laterDay = earliestDay === firstDay ? secondDay : firstDay;
 
               events.push({
