@@ -296,6 +296,7 @@ async function convertCalendarFromSchedule() {
           }
 
           let earliestDayDate = null;
+          let earliestDay = null;
           for (const day of days) {
             const dayDate = getFirstDayOccurrenceFromDate(
               firstDayOfClasses,
@@ -303,10 +304,12 @@ async function convertCalendarFromSchedule() {
             );
             if (!earliestDayDate || dayDate < earliestDayDate) {
               earliestDayDate = dayDate;
+              earliestDay = day;
             }
           }
 
-          const icsDays = days.map((day) => ICSDays[day]).join(",");
+          const sortedDays = [earliestDay, ...days.filter(d => d !== earliestDay)];
+          const icsDays = sortedDays.map((day) => ICSDays[day]).join(",");
 
           events.push({
             summary: subject,
@@ -515,6 +518,11 @@ async function convertCalendarFromEnlistment() {
                   ? firstDayDate
                   : secondDayDate;
 
+              let earliestDay = firstDayDate.getTime() < secondDayDate.getTime()
+                ? firstDay
+                : secondDay;
+              let laterDay = earliestDay === firstDay ? secondDay : firstDay;
+
               events.push({
                 summary: courseCode,
                 start: `${startDate.getFullYear()}${String(
@@ -531,7 +539,7 @@ async function convertCalendarFromEnlistment() {
                 )}T${endTime.replace(":", "")}00`,
                 location: venue.trim(),
                 description: `Section: ${section}\\nInstructor: ${instructor}`,
-                byday: `${ICSDays[firstDay]},${ICSDays[secondDay]}`,
+                byday: `${ICSDays[earliestDay]},${ICSDays[laterDay]}`,
                 endString: `${yearString}${String(
                   lastDayOfClasses.getMonth() + 1
                 ).padStart(2, "0")}${String(
