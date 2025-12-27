@@ -676,8 +676,9 @@ function generateUID(event) {
   const startTime = event.start.substring(9, 15);
   const days = event.byday.replace(/,/g, "");
   const location = event.location.replace(/[^a-zA-Z0-9]/g, "");
+  const description = event.description.replace(/[^a-zA-Z0-9]/g, "");
 
-  return `${summary}-${startTime}-${days}-${location}@aisis-to-calendar`;
+  return `${summary}-${startTime}-${days}-${location}-${description}@aisis-to-calendar`;
 }
 
 function getFirstDayOccurrenceFromDate(startDate, dayOfWeek) {
