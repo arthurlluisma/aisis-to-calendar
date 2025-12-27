@@ -8,9 +8,51 @@ document.addEventListener("DOMContentLoaded", async function () {
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
     const format = document.querySelector("#format").value;
-    await convertCalendar(format);
+
+    await chooseConversionMethod(format);
   });
 });
+
+const ScheduleGridTimes = Object.freeze({
+  "2": "0700",
+  "4": "0800",
+  "6": "0900",
+  "8": "1000",
+  "10": "1100",
+  "12": "1200",
+  "14": "1300",
+  "16": "1400",
+  "18": "1500",
+  "20": "1600",
+  "22": "1700",
+  "24": "1800",
+  "26": "1900",
+  "28": "2000",
+  "30": "2100",
+  "3": "0730",
+  "5": "0830",
+  "7": "0930",
+  "9": "1030",
+  "11": "1130",
+  "13": "1230",
+  "15": "1330",
+  "17": "1430",
+  "19": "1530",
+  "21": "1630",
+  "23": "1730",
+  "25": "1830",
+  "27": "1930",
+  "29": "2030"
+})
+
+const ScheduleGridDays = Object.freeze({
+  "2": "M",
+  "3": "T",
+  "4": "W",
+  "5": "TH",
+  "6": "F",
+  "7": "SAT",
+})
 
 const TermStartMonth = Object.freeze({
   "2nd Semester": 0,
@@ -74,7 +116,7 @@ async function initializeDates(firstDayInput, lastDayInput) {
 
     const termAndYearResults = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      function: extractTermAndYearAfterComment,
+      function: extractTermAndYear,
     });
 
     if (termAndYearResults && termAndYearResults[0] && termAndYearResults[0].result) {
@@ -120,7 +162,31 @@ async function initializeDates(firstDayInput, lastDayInput) {
   }
 }
 
-async function convertCalendar(whichButton) {
+async function chooseConversionMethod(format) {
+  try {
+    const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+
+    const pageResults = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        function: extractPage,
+      });
+    let currentPage = pageResults[0].result;
+
+    if (currentPage === "schedule") {
+      await convertCalendarFromSchedule(format);
+    } else {
+      await convertCalendarFromEnlistment(format);
+    }
+  } catch (error) {
+    console.error("Error choosing conversion method:", error);
+    alert("Sorry, but there was an issue during the date processing. Please try again.");
+  }
+}
+
+async function convertCalendarFromSchedule() {
   try {
     const [tab] = await chrome.tabs.query({
       active: true,
@@ -129,12 +195,148 @@ async function convertCalendar(whichButton) {
 
     const termAndYearResults = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      function: extractTermAndYearAfterComment,
+      function: extractTermAndYear,
+    });
+
+    const classCellsResults = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: extractClassCellsFromSchedule,
+    });
+
+    console.log("Executing...");
+    console.log({ classCellsResults, termAndYearResults });
+
+    if (classCellsResults && classCellsResults[0] && classCellsResults[0].result) {
+      const classCellsData = classCellsResults[0].result;
+
+      let termAndYear = termAndYearResults[0].result;
+      let term = termAndYear.split(", SY ")[0].trim();
+      let year = termAndYear.split(", SY ")[1].trim().split("-")[1];
+      year = parseInt(year, 10);
+      if (term !== "2nd Semester") {
+        year -= 1;
+      }
+      let yearString = year.toString();
+      console.log({ term, year, yearString });
+
+      const firstDayInput = document.querySelector("#firstDay").value;
+      const lastDayInput = document.querySelector("#lastDay").value;
+      
+      if (!firstDayInput || !lastDayInput) {
+        alert("Please provide both first and last day of classes.");
+        return;
+      }
+
+      const firstDayOfClasses = new Date(firstDayInput + 'T00:00:00');
+      const lastDayOfClasses = new Date(lastDayInput + 'T00:00:00');
+
+      await chrome.storage.local.set({
+        savedTerm: termAndYear,
+        savedFirstDay: firstDayInput,
+        savedLastDay: lastDayInput
+      });
+
+      if (classCellsData && classCellsData.length > 0) {
+        console.log("Found class cells:", classCellsData);
+
+        const groupedCells = {};
+        for (const cell of classCellsData) {
+          const key = cell.innerHTML;
+          if (!groupedCells[key]) {
+            groupedCells[key] = [];
+          }
+          groupedCells[key].push(cell);
+        }
+
+        let events = [];
+
+        for (const [courseCode, cells] of Object.entries(groupedCells)) {
+          let courseInfo = courseCode.split("<br>");
+          subject = courseInfo[0].trim();
+          let sectionLocationModalityInfo = courseInfo[1].split(" (");
+          sectionLocationModalityInfo[1] = "(" + sectionLocationModalityInfo[1];
+          let sectionLocationInfo = sectionLocationModalityInfo[0].split(/ (.+)/);
+          let section = sectionLocationInfo[0].trim();
+          let venue = sectionLocationInfo[1].trim();
+          let modality = sectionLocationModalityInfo[1].replace("(", "").replace(")", "").trim();
+
+          const daysSet = new Set();
+          let startTime = null;
+          let endTime = null;
+
+          for (const cell of cells) {
+            const day = ScheduleGridDays[cell.gridColumnStart];
+            if (day) {
+              daysSet.add(day);
+            }
+
+            if (!startTime) {
+              startTime = ScheduleGridTimes[cell.gridRowStart];
+            }
+            if (!endTime) {
+              endTime = ScheduleGridTimes[cell.gridRowEnd];
+            }
+          }
+
+          const days = Array.from(daysSet);
+          
+          if (days.length === 0 || !startTime || !endTime) {
+            console.warn("Skipping event due to missing data:", courseCode);
+            continue;
+          }
+
+          let earliestDayDate = null;
+          for (const day of days) {
+            const dayDate = getFirstDayOccurrenceFromDate(firstDayOfClasses, Days[day]);
+            if (!earliestDayDate || dayDate < earliestDayDate) {
+              earliestDayDate = dayDate;
+            }
+          }
+
+          const icsDays = days.map(day => ICSDays[day]).join(",");
+
+          events.push({
+            summary: subject,
+            start: `${earliestDayDate.getFullYear()}${String(earliestDayDate.getMonth()+1).padStart(2, '0')}${String(earliestDayDate.getDate()).padStart(2, '0')}T${startTime}00`,
+            end: `${earliestDayDate.getFullYear()}${String(earliestDayDate.getMonth()+1).padStart(2, '0')}${String(earliestDayDate.getDate()).padStart(2, '0')}T${endTime}00`,
+            location: venue,
+            description: `Section: ${section}\\nModality: ${modality}`,
+            byday: icsDays,
+            endString: `${yearString}${String(lastDayOfClasses.getMonth()+1).padStart(2, '0')}${String(lastDayOfClasses.getDate()).padStart(2, '0')}`
+          });
+        }
+
+        const icsData = await convertToICS(events);
+        downloadICS(icsData, "schedule.ics");
+
+        alert(`Conversion successful! Check your downloads for the ICS file.`);
+      } else {
+        alert("Sorry, but no class cells were found. Please ensure you are on the correct schedule page.");
+      }
+    } else {
+      alert("Sorry, but no class cells were found. Please ensure you are on the correct schedule page.");
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    alert("Sorry, but there was an issue during the conversion process. Please try again.");
+  }
+}
+
+async function convertCalendarFromEnlistment(whichButton) {
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
+    const termAndYearResults = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      function: extractTermAndYear,
     });
 
     const classResults = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      function: extractClassesTableAfterComment,
+      function: extractClassesTableFromEnlistment,
     });
 
     console.log("Executing...");
@@ -461,7 +663,7 @@ function getFirstDayOccurrenceFromDate(startDate, dayOfWeek) {
   return date;
 }
 
-function extractClassesTableAfterComment() {
+function extractClassesTableFromEnlistment() {
   const tableCells = document.querySelectorAll("td");
   let scheduleTable = null;
   let foundTable = false;
@@ -483,7 +685,16 @@ function extractClassesTableAfterComment() {
   return scheduleTable.outerHTML;
 }
 
-function extractTermAndYearAfterComment() {
+function extractPage() {
+  const classCell = document.querySelector(".classCell");
+  if (classCell) {
+    return "schedule";
+  } else {
+    return "enlistment";
+  }
+}
+
+function extractTermAndYear() {
   const terms = ["1st semester, sy ", "2nd semester, sy ", "intersession, sy "];
 
   const spanElements = document.querySelectorAll("span");
@@ -501,4 +712,26 @@ function extractTermAndYearAfterComment() {
   if (!foundSpan) return null;
 
   return termSpan.innerHTML;
+}
+
+function extractClassCellsFromSchedule() {
+  const classCells = document.querySelectorAll(".classCell");
+  const cellsData = [];
+
+  for (const cell of classCells) {
+    const style = cell.style;
+    const gridRowStart = style.gridRowStart;
+    const gridRowEnd = style.gridRowEnd;
+    const gridColumnStart = style.gridColumnStart;
+    const innerHTML = cell.innerHTML.trim();
+
+    cellsData.push({
+      innerHTML: innerHTML,
+      gridRowStart: gridRowStart,
+      gridRowEnd: gridRowEnd,
+      gridColumnStart: gridColumnStart
+    });
+  }
+
+  return cellsData;
 }
