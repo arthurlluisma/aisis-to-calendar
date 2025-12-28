@@ -68,7 +68,7 @@ Contributions are welcome! If you encounter any issues or have suggestions for i
 
 ## License
 
-This project will be licensed under the MIT License (coming soon). The dependency extension, AISIS Prettify, is currently licensed under the MIT License.
+This and AISIS Prettify are licensed under the MIT License.
 
 ## Related Projects
 
