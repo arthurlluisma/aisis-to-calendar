@@ -344,6 +344,8 @@ async function convertCalendarFromSchedule() {
         downloadICS(icsData, "schedule.ics");
 
         alert(`Conversion successful! Check your downloads for the ICS file.`);
+
+        window.close();
       } else {
         alert(
           "Sorry, but no class cells were found. Please ensure you are on the correct schedule page."
@@ -591,6 +593,8 @@ async function convertCalendarFromEnlistment() {
         alert(
           `Conversion successful! Check your downloads for the schedule.ics file.`
         );
+
+        window.close();
       } else {
         alert(
           "Sorry, but the table containing the class schedules couldn't be found. Please ensure you are on the correct page with the class schedule table."
@@ -743,8 +747,7 @@ function extractPage() {
     return "schedule";
   } else if (
     headerContent.toLowerCase() === "summary of enlistment" ||
-    headerContent.toLowerCase() === "enlistment summary" ||
-    headerContent.toLowerCase() === "confirm enlistment"
+    headerContent.toLowerCase() === "enlistment summary"
   ) {
     return "enlistment";
   }
